@@ -1,0 +1,91 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: ${WEB_CONTAINER_NAME}
+    expose:
+      - '3000'
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    networks:
+      - app_network
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: ${API_CONTAINER_NAME}
+    expose:
+      - '3000'
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: ${API_PORT}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app_network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${POSTGRES_CONTAINER_NAME}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    ports:
+      - '${POSTGRES_PORT}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${REDIS_CONTAINER_NAME}
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - '${REDIS_PORT}:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ${NGINX_CONTAINER_NAME}
+    restart: unless-stopped
+    ports:
+      - '${NGINX_PORT}:80'
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - web
+      - api
+    networks:
+      - app_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  app_network:
+    driver: bridge

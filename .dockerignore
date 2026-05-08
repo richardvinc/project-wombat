@@ -1,0 +1,39 @@
+# Node modules & package manager artifacts
+**/node_modules
+.pnpm-store
+.pnpm-debug.log
+pnpm-debug.log
+npm-debug.log
+yarn-debug.log
+
+# Build outputs
+dist
+dist/**
+build
+build/**
+.next
+.next/**
+.out
+
+# Nx / cache
+.nx
+cache.nx
+workspace-data
+.cache
+.cache/**
+
+# Logs and environment
+*.log
+.env
+.env.*.local
+
+# Git, editor, OS
+.git
+.git/**
+.vscode
+.idea
+.DS_Store
+
+# Docker files (exclude root Dockerfile and compose from context transfer)
+Dockerfile
+docker-compose.yml
