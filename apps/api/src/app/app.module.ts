@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { BullMqModule } from '../bullmq/bullmq.module';
 import { DatabaseModule } from '../database/database.module';
 import { RedisModule } from '../redis/redis.module';
 import { envValidationSchema } from './config/env.validation';
@@ -13,6 +14,7 @@ import { FlashSaleModule } from './sale/flash-sale.module';
       envFilePath: ['.env'],
       validationSchema: envValidationSchema,
     }),
+    BullMqModule,
     DatabaseModule,
     RedisModule,
     FlashSaleModule,

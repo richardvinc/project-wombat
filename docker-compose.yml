@@ -21,13 +21,14 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: ${API_CONTAINER_NAME}
     expose:
-      - '3000'
+      - ${API_PORT}
     env_file:
       - .env
     environment:
       NODE_ENV: production
       PORT: ${API_PORT}
       DATABASE_HOST: postgres
+      REDIS_HOST: redis
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,7 +46,7 @@ services:
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
     ports:
-      - '${POSTGRES_PORT}:5432'
+      - '${DATABASE_PORT}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -64,9 +65,9 @@ services:
       - .env
     command:
       [
-        "sh",
-        "-c",
-        "redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\"",
+        'sh',
+        '-c',
+        'redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"',
       ]
     ports:
       - '${REDIS_PORT}:6379'

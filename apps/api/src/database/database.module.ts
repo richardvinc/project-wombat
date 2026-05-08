@@ -13,7 +13,7 @@ import { migrations } from './migrations/migrations';
       useFactory: (configService: ConfigService) => ({
         type: 'postgres' as const,
         host: configService.getOrThrow<string>('DATABASE_HOST'),
-        port: configService.getOrThrow<number>('DATABASE_PORT'),
+        port: 5432, // hardcoded on purpose
         username: configService.getOrThrow<string>('DATABASE_USER'),
         password: configService.getOrThrow<string>('DATABASE_PASSWORD'),
         database: configService.getOrThrow<string>('DATABASE_NAME'),

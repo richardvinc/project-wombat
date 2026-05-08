@@ -13,11 +13,10 @@ import { RedisService } from './redis.service';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const logger = new Logger('RedisModule');
-        const username = configService.get<string>('REDIS_USERNAME');
         const redis = new Redis({
           host: configService.getOrThrow<string>('REDIS_HOST'),
-          port: configService.getOrThrow<number>('REDIS_PORT'),
-          ...(username ? { username } : {}),
+          port: 6379, // hardcoded on purpose
+          username: undefined, // hardcoded on purpose
           password: configService.get<string>('REDIS_PASSWORD'),
           db: configService.get<number>('REDIS_DB', 0),
           keyPrefix: configService.get<string>('REDIS_KEY_PREFIX'),
