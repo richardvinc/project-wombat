@@ -37,6 +37,7 @@
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/typeorm": "^11.0.1",
     "axios": "^1.6.0",
+    "ioredis": "^5.10.1",
     "joi": "^18.2.1",
     "next": "~16.1.6",
     "pg": "^8.16.0",

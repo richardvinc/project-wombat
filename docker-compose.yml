@@ -32,7 +32,7 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     networks:
       - app_network
 
@@ -62,10 +62,21 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    command:
+      [
+        "sh",
+        "-c",
+        "redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\"",
+      ]
     ports:
       - '${REDIS_PORT}:6379'
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$${REDIS_PASSWORD}" ping | grep PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - app_network
 
