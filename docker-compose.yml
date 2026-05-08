@@ -27,6 +27,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: ${API_PORT}
+      DATABASE_HOST: postgres
     depends_on:
       postgres:
         condition: service_healthy
