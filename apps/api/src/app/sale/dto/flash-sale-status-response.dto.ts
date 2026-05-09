@@ -1,11 +1,14 @@
 export enum SaleLifecycleStatus {
-  NOT_STARTED = 'not_started',
-  IN_PROGRESS = 'in_progress',
+  UPCOMING = 'upcoming',
+  ACTIVE = 'active',
   ENDED = 'ended',
 }
 
 export class FlashSaleStatusResponseDto {
+  saleId!: string;
   status!: SaleLifecycleStatus;
-  startAt!: string;
-  endAt!: string;
+  totalStock!: number;
+  availableSlots!: number;
+  startTime!: string;
+  endTime!: string;
 }

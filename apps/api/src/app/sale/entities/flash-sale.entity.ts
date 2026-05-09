@@ -2,13 +2,13 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity({ name: 'flash-sale' })
 export class FlashSaleEntity {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn({ type: 'varchar', length: 32 })
   id!: string;
 
   @Column({ type: 'varchar', length: 255 })
@@ -16,9 +16,6 @@ export class FlashSaleEntity {
 
   @Column({ type: 'int' })
   totalStock!: number;
-
-  @Column({ type: 'int' })
-  remainingStock!: number;
 
   @Column({ type: 'timestamptz' })
   startAt!: Date;

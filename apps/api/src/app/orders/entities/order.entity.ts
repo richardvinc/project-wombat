@@ -22,7 +22,7 @@ export class OrderEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'varchar', length: 32 })
   flashSaleId!: string;
 
   @ManyToOne(() => FlashSaleEntity, { nullable: false })
@@ -31,6 +31,9 @@ export class OrderEntity {
 
   @Column({ type: 'varchar', length: 50 })
   username!: string;
+
+  @Column({ type: 'varchar', length: 64 })
+  reservationId!: string;
 
   @Column({ type: 'enum', enum: OrderStatus })
   status!: OrderStatus;

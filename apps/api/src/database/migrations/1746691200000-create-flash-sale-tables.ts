@@ -18,10 +18,9 @@ export class CreateFlashSaleTables1746691200000 implements MigrationInterface {
         columns: [
           {
             name: 'id',
-            type: 'uuid',
+            type: 'varchar',
+            length: '32',
             isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
           },
           {
             name: 'productName',
@@ -30,10 +29,6 @@ export class CreateFlashSaleTables1746691200000 implements MigrationInterface {
           },
           {
             name: 'totalStock',
-            type: 'int',
-          },
-          {
-            name: 'remainingStock',
             type: 'int',
           },
           {
@@ -59,10 +54,6 @@ export class CreateFlashSaleTables1746691200000 implements MigrationInterface {
       true,
     );
 
-    await queryRunner.query(
-      `CREATE TYPE "public"."orders_status_enum" AS ENUM('paid')`,
-    );
-
     await queryRunner.createTable(
       new Table({
         name: 'orders',
@@ -76,7 +67,8 @@ export class CreateFlashSaleTables1746691200000 implements MigrationInterface {
           },
           {
             name: 'flashSaleId',
-            type: 'uuid',
+            type: 'varchar',
+            length: '32',
           },
           {
             name: 'username',
@@ -84,9 +76,13 @@ export class CreateFlashSaleTables1746691200000 implements MigrationInterface {
             length: '50',
           },
           {
+            name: 'reservationId',
+            type: 'varchar',
+            length: '64',
+          },
+          {
             name: 'status',
             type: 'enum',
-            enumName: 'orders_status_enum',
             enum: ['paid'],
           },
           {

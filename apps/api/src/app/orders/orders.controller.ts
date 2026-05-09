@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateOrderResponseDto } from './dto/create-order-response.dto';
 import { MakePaymentDto } from './dto/make-payment.dto';
@@ -10,25 +10,24 @@ import { OrdersService } from './services/orders.service';
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
-  @Post()
-  attemptPurchase(
+  @Post('buy')
+  async attemptPurchase(
     @Body() createOrderDto: CreateOrderDto,
-  ): CreateOrderResponseDto {
+  ): Promise<CreateOrderResponseDto> {
     return this.ordersService.attemptPurchase(createOrderDto);
   }
 
-  @Get(':username/status')
-  getOrderStatus(
-    @Param('username') username: string,
-  ): UserOrderStatusResponseDto {
+  @Get('status')
+  async getOrderStatus(
+    @Query('username') username: string,
+  ): Promise<UserOrderStatusResponseDto> {
     return this.ordersService.getOrderStatus(username);
   }
 
-  @Post(':username/payment')
-  makePayment(
-    @Param('username') username: string,
+  @Post('pay')
+  async makePayment(
     @Body() makePaymentDto: MakePaymentDto,
-  ): PaymentResponseDto {
-    return this.ordersService.makePayment(username, makePaymentDto);
+  ): Promise<PaymentResponseDto> {
+    return this.ordersService.makePayment(makePaymentDto);
   }
 }

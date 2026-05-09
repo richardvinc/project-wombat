@@ -8,5 +8,6 @@ import { FlashSaleService } from './services/flash-sale.service';
   imports: [TypeOrmModule.forFeature([FlashSaleEntity])],
   controllers: [FlashSaleController],
   providers: [FlashSaleService],
+  exports: [FlashSaleService],
 })
 export class FlashSaleModule {}

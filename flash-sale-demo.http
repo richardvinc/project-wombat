@@ -1,0 +1,183 @@
+@baseUrl = http://localhost:3100/api
+@usernameSuccess = userA
+@usernameFail = userB
+@usernameCooldown = userC
+
+### Check current flash sale status.
+### Use this first to confirm seeded sale exists and to see available slots/start-end time.
+GET {{baseUrl}}/flash-sale/status
+
+###
+
+### Happy path: user attempts to buy and should receive a reservationId.
+### This request is named so later variables can read from its latest response.
+# @name buySuccess
+POST {{baseUrl}}/orders/buy
+Content-Type: application/json
+
+{
+  "username": "{{usernameSuccess}}"
+}
+
+###
+
+@reservationIdSuccess = {{buySuccess.response.body.$.reservationId}}
+
+###
+
+
+### Check status after reservation.
+### Should return `reserved` while reservation is still active.
+GET {{baseUrl}}/orders/status?username={{usernameSuccess}}
+
+###
+
+### Happy path payment success.
+### Uses reservationId captured from `buySuccess`.
+POST {{baseUrl}}/orders/pay
+Content-Type: application/json
+
+{
+  "username": "{{usernameSuccess}}",
+  "reservationId": "{{reservationIdSuccess}}",
+  "forceSuccess": true
+}
+
+###
+
+### Check status after successful payment.
+### Should return `paid`.
+GET {{baseUrl}}/orders/status?username={{usernameSuccess}}
+
+###
+
+### Attempt to buy again after already paying.
+### Should return `already_paid`.
+POST {{baseUrl}}/orders/buy
+Content-Type: application/json
+
+{
+  "username": "{{usernameSuccess}}"
+}
+
+###
+
+### Failure path: second user attempts to buy and gets a reservation.
+### Named request + PR-style `@set`.
+# @name buyFailUser
+POST {{baseUrl}}/orders/buy
+Content-Type: application/json
+
+{
+  "username": "{{usernameFail}}"
+}
+
+###
+
+@reservationIdFail = {{buyFailUser.response.body.$.reservationId}}
+
+### Simulate payment failure.
+### Reservation should stay active after this.
+POST {{baseUrl}}/orders/pay
+Content-Type: application/json
+
+{
+  "username": "{{usernameFail}}",
+  "reservationId": "{{reservationIdFail}}",
+  "forceSuccess": false
+}
+
+###
+
+### Check status after failed payment.
+### Should still return `reserved` until reservation expires or payment later succeeds.
+GET {{baseUrl}}/orders/status?username={{usernameFail}}
+
+###
+
+### Retry payment for same reservation, now force success.
+### This shows payment retry while reservation is still active.
+POST {{baseUrl}}/orders/pay
+Content-Type: application/json
+
+{
+  "username": "{{usernameFail}}",
+  "reservationId": "{{reservationIdFail}}",
+  "forceSuccess": true
+}
+
+###
+
+### Invalid reservation scenario.
+### Same user, wrong reservationId. Should return `invalid_reservation` or no reservation depending on state.
+POST {{baseUrl}}/orders/pay
+Content-Type: application/json
+
+{
+  "username": "{{usernameFail}}",
+  "reservationId": "wrong-reservation-id",
+  "forceSuccess": true
+}
+
+###
+
+### Cooldown / expiry scenario setup: reserve for a third user.
+### Named request + PR-style `@set`.
+# @name buyCooldownUser
+POST {{baseUrl}}/orders/buy
+Content-Type: application/json
+
+{
+  "username": "{{usernameCooldown}}"
+}
+
+###
+
+@reservationIdCooldown = buyCooldownUser.response.body.$.reservationId
+
+### Check status for cooldown scenario user.
+### Should return `reserved` immediately after buy.
+GET {{baseUrl}}/orders/status?username={{usernameCooldown}}
+
+###
+
+### Manual wait step for expiry scenario.
+### Wait 5 minutes for release-reservation job
+
+### After reservation expiry, status should become `none`.
+GET {{baseUrl}}/orders/status?username={{usernameCooldown}}
+
+###
+
+### After reservation expiry, buying again immediately should hit cooldown.
+### Should return `cooldown_active` until cooldown TTL passes.
+POST {{baseUrl}}/orders/buy
+Content-Type: application/json
+
+{
+  "username": "{{usernameCooldown}}"
+}
+
+###
+
+### Manual wait step for cooldown expiry.
+### Wait 2 minutes, then try buying again with same user.
+
+### After cooldown expires, user should be able to reserve again.
+POST {{baseUrl}}/orders/buy
+Content-Type: application/json
+
+{
+  "username": "{{usernameCooldown}}"
+}
+
+###
+
+### User-throttle scenario.
+### Run this request repeatedly 4 times within one minute for same username to trigger `too_many_requests`.
+POST {{baseUrl}}/orders/buy
+Content-Type: application/json
+
+{
+  "username": "rate-limit-user"
+}

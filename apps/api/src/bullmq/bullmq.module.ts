@@ -11,7 +11,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       useFactory: (configService: ConfigService) => ({
         connection: {
           host: configService.getOrThrow<string>('REDIS_HOST'),
-          port: configService.getOrThrow<number>('REDIS_PORT'),
+          port: 6379, // hardcoded on purpose
           username: '', // hardcoded on purpose
           password: configService.getOrThrow<string>('REDIS_PASSWORD'),
           db: configService.get<number>('REDIS_DB', 0),

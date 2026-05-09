@@ -7,7 +7,7 @@ export class FlashSaleController {
   constructor(private readonly saleService: FlashSaleService) {}
 
   @Get('status')
-  getCurrentStatus(): FlashSaleStatusResponseDto {
+  async getCurrentStatus(): Promise<FlashSaleStatusResponseDto> {
     return this.saleService.getCurrentStatus();
   }
 }

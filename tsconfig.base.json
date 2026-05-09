@@ -6,6 +6,7 @@
     "declaration": false,
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "noImplicitAny": false,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "importHelpers": true,
