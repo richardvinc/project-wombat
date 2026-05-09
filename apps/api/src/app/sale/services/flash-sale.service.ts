@@ -5,10 +5,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { FlashSaleDemoConfigService } from '../../config/demo.config';
 import { createFlashSaleSeed } from '../../../database/seeds/seed-flash-sale';
 import { RedisService } from '../../../redis/redis.service';
-import { DEFAULT_SALE_ID } from '../../orders/orders.constants';
-import { ordersRedisKeys } from '../../orders/orders.redis-keys';
+import { createOrdersRedisKeys } from '../../orders/orders.redis-keys';
 import {
   FlashSaleStatusResponseDto,
   SaleLifecycleStatus,
@@ -21,6 +21,7 @@ export class FlashSaleService implements OnApplicationBootstrap {
     @InjectRepository(FlashSaleEntity)
     private readonly flashSaleRepository: Repository<FlashSaleEntity>,
     private readonly redisService: RedisService,
+    private readonly demoConfig: FlashSaleDemoConfigService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -32,12 +33,13 @@ export class FlashSaleService implements OnApplicationBootstrap {
 
   async getCurrentStatus(): Promise<FlashSaleStatusResponseDto> {
     const sale = await this.getDefaultSaleEntity();
+    const redisKeys = createOrdersRedisKeys(this.demoConfig.saleId);
 
     const redis = this.redisService.getClient();
-    const availableSlotsRaw = await redis.get(ordersRedisKeys.availableSlots());
+    const availableSlotsRaw = await redis.get(redisKeys.availableSlots());
 
     return {
-      saleId: DEFAULT_SALE_ID,
+      saleId: this.demoConfig.saleId,
       status: this.getLifecycleStatus(sale.startAt, sale.endAt),
       totalStock: sale.totalStock,
       availableSlots: Number(availableSlotsRaw ?? sale.totalStock),
@@ -48,7 +50,7 @@ export class FlashSaleService implements OnApplicationBootstrap {
 
   async getDefaultSaleEntity(): Promise<FlashSaleEntity> {
     const sale = await this.flashSaleRepository.findOneBy({
-      id: DEFAULT_SALE_ID,
+      id: this.demoConfig.saleId,
     });
 
     if (!sale) {
@@ -62,11 +64,18 @@ export class FlashSaleService implements OnApplicationBootstrap {
 
   async ensureAvailableSlotsInitialized(totalStock: number): Promise<void> {
     const redis = this.redisService.getClient();
-    await redis.set(ordersRedisKeys.availableSlots(), String(totalStock), 'NX');
+    const redisKeys = createOrdersRedisKeys(this.demoConfig.saleId);
+    await redis.set(redisKeys.availableSlots(), String(totalStock), 'NX');
   }
 
   private async seedDefaultSale(): Promise<FlashSaleEntity> {
-    const seed = createFlashSaleSeed();
+    const seed = createFlashSaleSeed({
+      saleId: this.demoConfig.saleId,
+      productName: this.demoConfig.productName,
+      totalStock: this.demoConfig.totalStock,
+      startDelaySeconds: this.demoConfig.startDelaySeconds,
+      durationSeconds: this.demoConfig.durationSeconds,
+    });
 
     await this.flashSaleRepository.upsert(
       {

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { BullMqModule } from '../bullmq/bullmq.module';
 import { DatabaseModule } from '../database/database.module';
 import { RedisModule } from '../redis/redis.module';
+import { DemoConfigModule } from './config/demo.config';
 import { envValidationSchema } from './config/env.validation';
 import { OrdersModule } from './orders/orders.module';
 import { FlashSaleModule } from './sale/flash-sale.module';
@@ -14,6 +15,7 @@ import { FlashSaleModule } from './sale/flash-sale.module';
       envFilePath: ['.env'],
       validationSchema: envValidationSchema,
     }),
+    DemoConfigModule,
     BullMqModule,
     DatabaseModule,
     RedisModule,

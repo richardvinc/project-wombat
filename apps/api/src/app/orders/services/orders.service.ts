@@ -14,6 +14,7 @@ import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
 import { Redis } from 'ioredis';
 import { Repository } from 'typeorm';
+import { FlashSaleDemoConfigService } from '../../config/demo.config';
 import { RedisService } from '../../../redis/redis.service';
 import { FlashSaleService } from '../../sale/services/flash-sale.service';
 import { CreateOrderResponseDto } from '../dto/create-order-response.dto';
@@ -23,14 +24,9 @@ import { PaymentResponseDto } from '../dto/payment-response.dto';
 import { UserOrderStatusResponseDto } from '../dto/user-order-status-response.dto';
 import { OrderEntity } from '../entities/order.entity';
 import {
-  ATTEMPT_WINDOW_SECONDS,
-  DEFAULT_SALE_ID,
   ORDERS_QUEUE_NAME,
-  RESERVATION_TTL_MS,
-  RESERVATION_TTL_SECONDS,
-  USER_ATTEMPT_LIMIT,
 } from '../orders.constants';
-import { ordersRedisKeys } from '../orders.redis-keys';
+import { createOrdersRedisKeys } from '../orders.redis-keys';
 import {
   CreatePaidOrderJobData,
   ReleaseReservationJobData,
@@ -48,6 +44,7 @@ export class OrdersService implements OnApplicationBootstrap {
     private readonly flashSaleService: FlashSaleService,
     private readonly ordersLuaService: OrdersLuaService,
     private readonly paymentSimulatorService: PaymentSimulatorService,
+    private readonly demoConfig: FlashSaleDemoConfigService,
     @InjectQueue(ORDERS_QUEUE_NAME)
     private readonly ordersQueue: Queue<
       ReleaseReservationJobData | CreatePaidOrderJobData
@@ -61,6 +58,7 @@ export class OrdersService implements OnApplicationBootstrap {
   async attemptPurchase(
     createOrderDto: CreateOrderDto,
   ): Promise<CreateOrderResponseDto> {
+    const redisKeys = createOrdersRedisKeys(this.demoConfig.saleId);
     const username = createOrderDto.username?.trim();
 
     if (!username) {
@@ -76,13 +74,15 @@ export class OrdersService implements OnApplicationBootstrap {
     const redis = this.redisService.getClient();
     await this.enforceRateLimit(
       redis,
-      ordersRedisKeys.buyAttemptsUser(username),
-      USER_ATTEMPT_LIMIT,
+      redisKeys.buyAttemptsUser(username),
+      this.demoConfig.userAttemptLimit,
     );
 
     const reservationId = randomUUID();
     const reservedAt = new Date();
-    const expiresAt = new Date(reservedAt.getTime() + RESERVATION_TTL_MS);
+    const expiresAt = new Date(
+      reservedAt.getTime() + this.demoConfig.reservationTtlMs,
+    );
     const reservation: ReservationRecord = {
       username,
       reservationId,
@@ -93,15 +93,15 @@ export class OrdersService implements OnApplicationBootstrap {
     const result = await redis.eval(
       this.ordersLuaService.getScript('reserve-reservation.lua'),
       6,
-      ordersRedisKeys.availableSlots(),
-      ordersRedisKeys.reservedUser(username),
-      ordersRedisKeys.reservation(reservationId),
-      ordersRedisKeys.paidUser(username),
-      ordersRedisKeys.cooldown(username),
-      ordersRedisKeys.reservationExpiries(),
+      redisKeys.availableSlots(),
+      redisKeys.reservedUser(username),
+      redisKeys.reservation(reservationId),
+      redisKeys.paidUser(username),
+      redisKeys.cooldown(username),
+      redisKeys.reservationExpiries(),
       reservationId,
       JSON.stringify(reservation),
-      RESERVATION_TTL_SECONDS,
+      this.demoConfig.reservationTtlSeconds,
       expiresAt.getTime(),
       username,
     );
@@ -114,23 +114,24 @@ export class OrdersService implements OnApplicationBootstrap {
       'release-reservation',
       { username, reservationId },
       {
-        delay: RESERVATION_TTL_MS,
+        delay: this.demoConfig.reservationTtlMs,
         attempts: 5,
         backoff: { type: 'exponential', delay: 1000 },
-        jobId: `release-reservation:${DEFAULT_SALE_ID}:${reservationId}`,
+        jobId: `release-reservation:${this.demoConfig.saleId}:${reservationId}`,
       },
     );
 
     return {
       username,
       status: 'reserved',
-      message: `Slot reserved. Please pay within ${RESERVATION_TTL_SECONDS / 60} minutes.`,
+      message: `Slot reserved. Please pay within ${this.formatDuration(this.demoConfig.reservationTtlSeconds)}.`,
       reservationId,
       expiresAt: expiresAt.toISOString(),
     };
   }
 
   async getOrderStatus(username: string): Promise<UserOrderStatusResponseDto> {
+    const redisKeys = createOrdersRedisKeys(this.demoConfig.saleId);
     const normalizedUsername = username?.trim();
 
     if (!normalizedUsername) {
@@ -143,7 +144,7 @@ export class OrdersService implements OnApplicationBootstrap {
     const redis = this.redisService.getClient();
 
     // user already paid
-    if (await redis.exists(ordersRedisKeys.paidUser(normalizedUsername))) {
+    if (await redis.exists(redisKeys.paidUser(normalizedUsername))) {
       return {
         username: normalizedUsername,
         status: 'paid',
@@ -154,7 +155,7 @@ export class OrdersService implements OnApplicationBootstrap {
     }
 
     const reservationId = await redis.get(
-      ordersRedisKeys.reservedUser(normalizedUsername),
+      redisKeys.reservedUser(normalizedUsername),
     );
 
     // no reservation
@@ -193,6 +194,7 @@ export class OrdersService implements OnApplicationBootstrap {
   async makePayment(
     makePaymentDto: MakePaymentDto,
   ): Promise<PaymentResponseDto> {
+    const redisKeys = createOrdersRedisKeys(this.demoConfig.saleId);
     const username = makePaymentDto.username?.trim();
     const reservationId = makePaymentDto.reservationId?.trim();
 
@@ -206,7 +208,7 @@ export class OrdersService implements OnApplicationBootstrap {
     const redis = this.redisService.getClient();
 
     // user already paid
-    if (await redis.exists(ordersRedisKeys.paidUser(username))) {
+    if (await redis.exists(redisKeys.paidUser(username))) {
       throw new ConflictException({
         status: 'already_paid',
         message: 'You have already paid.',
@@ -214,7 +216,7 @@ export class OrdersService implements OnApplicationBootstrap {
     }
 
     const currentReservationId = await redis.get(
-      ordersRedisKeys.reservedUser(username),
+      redisKeys.reservedUser(username),
     );
 
     // no active reservation
@@ -262,10 +264,10 @@ export class OrdersService implements OnApplicationBootstrap {
     const result = await redis.eval(
       this.ordersLuaService.getScript('mark-paid.lua'),
       4,
-      ordersRedisKeys.reservedUser(username),
-      ordersRedisKeys.reservation(reservationId),
-      ordersRedisKeys.paidUser(username),
-      ordersRedisKeys.reservationExpiries(),
+      redisKeys.reservedUser(username),
+      redisKeys.reservation(reservationId),
+      redisKeys.paidUser(username),
+      redisKeys.reservationExpiries(),
       reservationId,
       username,
     );
@@ -312,7 +314,7 @@ export class OrdersService implements OnApplicationBootstrap {
       {
         attempts: 10,
         backoff: { type: 'exponential', delay: 1000 },
-        jobId: `create-paid-order:${DEFAULT_SALE_ID}:${username}`,
+        jobId: `create-paid-order:${this.demoConfig.saleId}:${username}`,
       },
     );
 
@@ -351,7 +353,7 @@ export class OrdersService implements OnApplicationBootstrap {
     const attempts = await redis.incr(key);
 
     if (attempts === 1) {
-      await redis.expire(key, ATTEMPT_WINDOW_SECONDS);
+      await redis.expire(key, this.demoConfig.attemptWindowSeconds);
     }
 
     if (attempts > maxAttempts) {
@@ -370,7 +372,7 @@ export class OrdersService implements OnApplicationBootstrap {
     reservationId: string,
   ): Promise<ReservationRecord | null> {
     const reservationRaw = await redis.get(
-      ordersRedisKeys.reservation(reservationId),
+      createOrdersRedisKeys(this.demoConfig.saleId).reservation(reservationId),
     );
 
     if (!reservationRaw) {
@@ -413,5 +415,14 @@ export class OrdersService implements OnApplicationBootstrap {
           message: `Unexpected reservation state: ${result}`,
         });
     }
+  }
+
+  private formatDuration(durationSeconds: number): string {
+    if (durationSeconds % 60 === 0) {
+      const minutes = durationSeconds / 60;
+      return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+    }
+
+    return `${durationSeconds} second${durationSeconds === 1 ? '' : 's'}`;
   }
 }

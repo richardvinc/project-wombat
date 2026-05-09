@@ -1,4 +1,5 @@
 import * as Joi from 'joi';
+import { flashSaleDemoDefaults } from './demo.config';
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
@@ -24,4 +25,36 @@ export const envValidationSchema = Joi.object({
   POSTGRES_CONTAINER_NAME: Joi.string().required(),
   REDIS_CONTAINER_NAME: Joi.string().required(),
   NGINX_CONTAINER_NAME: Joi.string().required(),
+  FLASH_SALE_ID: Joi.string().default(flashSaleDemoDefaults.saleId),
+  FLASH_SALE_PRODUCT_NAME: Joi.string().default(
+    flashSaleDemoDefaults.productName,
+  ),
+  FLASH_SALE_TOTAL_STOCK: Joi.number()
+    .integer()
+    .min(1)
+    .default(flashSaleDemoDefaults.totalStock),
+  FLASH_SALE_START_DELAY_SECONDS: Joi.number()
+    .integer()
+    .min(0)
+    .default(flashSaleDemoDefaults.startDelaySeconds),
+  FLASH_SALE_DURATION_SECONDS: Joi.number()
+    .integer()
+    .min(1)
+    .default(flashSaleDemoDefaults.durationSeconds),
+  FLASH_SALE_RESERVATION_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(1)
+    .default(flashSaleDemoDefaults.reservationTtlSeconds),
+  FLASH_SALE_COOLDOWN_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(0)
+    .default(flashSaleDemoDefaults.cooldownTtlSeconds),
+  FLASH_SALE_USER_ATTEMPT_LIMIT: Joi.number()
+    .integer()
+    .min(1)
+    .default(flashSaleDemoDefaults.userAttemptLimit),
+  FLASH_SALE_ATTEMPT_WINDOW_SECONDS: Joi.number()
+    .integer()
+    .min(1)
+    .default(flashSaleDemoDefaults.attemptWindowSeconds),
 });
