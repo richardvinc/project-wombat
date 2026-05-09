@@ -1,45 +1,48 @@
 @baseUrl = http://localhost:3100/api
-@usernameSuccess = userA
-@usernameFail = userB
-@usernameCooldown = userC
+@usernameA = userA
+@usernameB = userB
+@usernameC = userC
+@usernameD = userD
 
 ### Check current flash sale status.
 GET {{baseUrl}}/flash-sale/status
 
 ###
 
-### HAPPY PATH: user attempts to buy and should receive a reservationId.
+### USER A PATH: user attempts to buy and should receive a reservationId.
 # @name buySuccess
 POST {{baseUrl}}/orders/buy
 Content-Type: application/json
 
 {
-  "username": "{{usernameSuccess}}"
+  "username": "{{usernameA}}"
 }
 
 ###
 
-@reservationIdSuccess = {{buySuccess.response.body.$.reservationId}}
 
 ### Check status after reservation -> should return `reserved` while reservation is still active.
-GET {{baseUrl}}/orders/status?username={{usernameSuccess}}
+# @name getActiveAReservation
+GET {{baseUrl}}/orders/status?username={{usernameA}}
 
 ###
 
-### Happy path payment success.
+@reservationIdSuccess = {{getActiveAReservation.response.body.$.reservationId}}
+
+### payment success.
 POST {{baseUrl}}/orders/pay
 Content-Type: application/json
 
 {
-  "username": "{{usernameSuccess}}",
+  "username": "{{usernameA}}",
   "reservationId": "{{reservationIdSuccess}}",
   "forceSuccess": true
 }
 
 ###
 
-### Check status after successful payment -> should return `paid`.
-GET {{baseUrl}}/orders/status?username={{usernameSuccess}}
+### Check status user A after successful payment -> should return `paid`.
+GET {{baseUrl}}/orders/status?username={{usernameA}}
 
 ###
 
@@ -48,30 +51,36 @@ POST {{baseUrl}}/orders/buy
 Content-Type: application/json
 
 {
-  "username": "{{usernameSuccess}}"
+  "username": "{{usernameA}}"
 }
 
 ###
 
-### SAD PATH: second user attempts to buy and gets a reservation.
+### USER B PATH: second user attempts to buy and gets a reservation.
 # @name buyFailUser
 POST {{baseUrl}}/orders/buy
 Content-Type: application/json
 
 {
-  "username": "{{usernameFail}}"
+  "username": "{{usernameB}}"
 }
 
 ###
 
-@reservationIdFail = {{buyFailUser.response.body.$.reservationId}}
+### Check status user B after reservation -> should return `reserved` while reservation is still active.
+# @name getActiveBReservation
+GET {{baseUrl}}/orders/status?username={{usernameB}}
+
+###
+
+@reservationIdFail = {{getActiveBReservation.response.body.$.reservationId}}
 
 ### Simulate payment failure -> reservation should stay active after this.
 POST {{baseUrl}}/orders/pay
 Content-Type: application/json
 
 {
-  "username": "{{usernameFail}}",
+  "username": "{{usernameB}}",
   "reservationId": "{{reservationIdFail}}",
   "forceSuccess": false
 }
@@ -79,7 +88,7 @@ Content-Type: application/json
 ###
 
 ### Check status after failed payment -> should still return `reserved` until reservation expires or payment later succeeds.
-GET {{baseUrl}}/orders/status?username={{usernameFail}}
+GET {{baseUrl}}/orders/status?username={{usernameB}}
 
 ###
 
@@ -88,7 +97,7 @@ POST {{baseUrl}}/orders/pay
 Content-Type: application/json
 
 {
-  "username": "{{usernameFail}}",
+  "username": "{{usernameB}}",
   "reservationId": "{{reservationIdFail}}",
   "forceSuccess": true
 }
@@ -101,20 +110,20 @@ POST {{baseUrl}}/orders/pay
 Content-Type: application/json
 
 {
-  "username": "{{usernameFail}}",
+  "username": "{{usernameB}}",
   "reservationId": "wrong-reservation-id",
   "forceSuccess": true
 }
 
 ###
 
-### Cooldown / expiry scenario setup: reserve for a third user.
+### USER C PATH: Cooldown / expiry scenario setup
 # @name buyCooldownUser
 POST {{baseUrl}}/orders/buy
 Content-Type: application/json
 
 {
-  "username": "{{usernameCooldown}}"
+  "username": "{{usernameC}}"
 }
 
 ###
@@ -122,14 +131,14 @@ Content-Type: application/json
 @reservationIdCooldown = buyCooldownUser.response.body.$.reservationId
 
 ### Check status for cooldown scenario user -> should return `reserved` immediately after buy.
-GET {{baseUrl}}/orders/status?username={{usernameCooldown}}
+GET {{baseUrl}}/orders/status?username={{usernameC}}
 
 ###
 
 ### MANUAL WAIT to make sure reservation is expired
 
 ### After reservation expiry, status should become `none`.
-GET {{baseUrl}}/orders/status?username={{usernameCooldown}}
+GET {{baseUrl}}/orders/status?username={{usernameC}}
 
 ###
 
@@ -138,7 +147,7 @@ POST {{baseUrl}}/orders/buy
 Content-Type: application/json
 
 {
-  "username": "{{usernameCooldown}}"
+  "username": "{{usernameC}}"
 }
 
 ###
@@ -150,7 +159,7 @@ POST {{baseUrl}}/orders/buy
 Content-Type: application/json
 
 {
-  "username": "{{usernameCooldown}}"
+  "username": "{{usernameC}}"
 }
 
 ###
@@ -162,4 +171,13 @@ Content-Type: application/json
 
 {
   "username": "rate-limit-user"
+}
+
+
+### try with user D
+POST {{baseUrl}}/orders/buy
+Content-Type: application/json
+
+{
+  "username": "{{usernameD}}"
 }

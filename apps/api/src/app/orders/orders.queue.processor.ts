@@ -1,4 +1,5 @@
 import { Job } from 'bullmq';
+import { Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,6 +17,8 @@ import { OrdersLuaService } from './services/orders-lua.service';
 
 @Processor(ORDERS_QUEUE_NAME)
 export class OrdersQueueProcessor extends WorkerHost {
+  private readonly logger = new Logger(OrdersQueueProcessor.name);
+
   constructor(
     private readonly redisService: RedisService,
     private readonly flashSaleService: FlashSaleService,
@@ -30,26 +33,49 @@ export class OrdersQueueProcessor extends WorkerHost {
   async process(
     job: Job<ReleaseReservationJobData | CreatePaidOrderJobData>,
   ): Promise<void> {
-    switch (job.name) {
-      case 'release-reservation':
-        await this.releaseReservation(job as Job<ReleaseReservationJobData>);
-        return;
-      case 'create-paid-order':
-        await this.createPaidOrder(job as Job<CreatePaidOrderJobData>);
-        return;
-      default:
-        throw new Error(`Unsupported job: ${job.name}`);
+    this.logger.log(
+      `Processing job "${job.name}" (id=${job.id ?? 'unknown'}, attemptsMade=${job.attemptsMade})`,
+    );
+
+    try {
+      let result: string;
+
+      switch (job.name) {
+        case 'release-reservation':
+          result = await this.releaseReservation(
+            job as Job<ReleaseReservationJobData>,
+          );
+          break;
+        case 'create-paid-order':
+          result = await this.createPaidOrder(job as Job<CreatePaidOrderJobData>);
+          break;
+        default:
+          throw new Error(`Unsupported job: ${job.name}`);
+      }
+
+      this.logger.log(
+        `Completed job "${job.name}" (id=${job.id ?? 'unknown'}) with result=${result}`,
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.stack ?? error.message : String(error);
+
+      this.logger.error(
+        `Failed job "${job.name}" (id=${job.id ?? 'unknown'})`,
+        message,
+      );
+      throw error;
     }
   }
 
   private async releaseReservation(
     job: Job<ReleaseReservationJobData>,
-  ): Promise<void> {
+  ): Promise<string> {
     const { username, reservationId } = job.data;
     const redis = this.redisService.getClient();
     const redisKeys = createOrdersRedisKeys(this.demoConfig.saleId);
 
-    await redis.eval(
+    const result = await redis.eval(
       this.ordersLuaService.getScript('release-reservation.lua'),
       6,
       redisKeys.availableSlots(),
@@ -62,11 +88,13 @@ export class OrdersQueueProcessor extends WorkerHost {
       username,
       this.demoConfig.cooldownTtlSeconds,
     );
+
+    return String(result);
   }
 
   private async createPaidOrder(
     job: Job<CreatePaidOrderJobData>,
-  ): Promise<void> {
+  ): Promise<string> {
     const { username, reservationId, paymentReferenceNumber } = job.data;
     const sale = await this.flashSaleService.getDefaultSaleEntity();
 
@@ -81,5 +109,7 @@ export class OrdersQueueProcessor extends WorkerHost {
       },
       ['flashSaleId', 'username'],
     );
+
+    return OrderStatus.PAID;
   }
 }

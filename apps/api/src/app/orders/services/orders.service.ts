@@ -14,8 +14,8 @@ import { Queue } from 'bullmq';
 import { randomUUID } from 'crypto';
 import { Redis } from 'ioredis';
 import { Repository } from 'typeorm';
-import { FlashSaleDemoConfigService } from '../../config/demo.config';
 import { RedisService } from '../../../redis/redis.service';
+import { FlashSaleDemoConfigService } from '../../config/demo.config';
 import { FlashSaleService } from '../../sale/services/flash-sale.service';
 import { CreateOrderResponseDto } from '../dto/create-order-response.dto';
 import { CreateOrderDto } from '../dto/create-order.dto';
@@ -23,9 +23,7 @@ import { MakePaymentDto } from '../dto/make-payment.dto';
 import { PaymentResponseDto } from '../dto/payment-response.dto';
 import { UserOrderStatusResponseDto } from '../dto/user-order-status-response.dto';
 import { OrderEntity } from '../entities/order.entity';
-import {
-  ORDERS_QUEUE_NAME,
-} from '../orders.constants';
+import { ORDERS_QUEUE_NAME } from '../orders.constants';
 import { createOrdersRedisKeys } from '../orders.redis-keys';
 import {
   CreatePaidOrderJobData,
@@ -69,10 +67,10 @@ export class OrdersService implements OnApplicationBootstrap {
     }
 
     const sale = await this.flashSaleService.getDefaultSaleEntity();
-    this.ensureSaleActiveWindow(sale.startAt, sale.endAt);
+    this.ensureSaleActiveWindowOrThrow(sale.startAt, sale.endAt);
 
     const redis = this.redisService.getClient();
-    await this.enforceRateLimit(
+    await this.enforceRateLimitOrThrow(
       redis,
       redisKeys.buyAttemptsUser(username),
       this.demoConfig.userAttemptLimit,
@@ -327,7 +325,7 @@ export class OrdersService implements OnApplicationBootstrap {
     };
   }
 
-  private ensureSaleActiveWindow(startAt: Date, endAt: Date): void {
+  private ensureSaleActiveWindowOrThrow(startAt: Date, endAt: Date): void {
     const now = Date.now();
 
     if (now < startAt.getTime()) {
@@ -345,7 +343,7 @@ export class OrdersService implements OnApplicationBootstrap {
     }
   }
 
-  private async enforceRateLimit(
+  private async enforceRateLimitOrThrow(
     redis: Redis,
     key: string,
     maxAttempts: number,
