@@ -20,7 +20,10 @@ import { RedisService } from './redis.service';
           password: configService.get<string>('REDIS_PASSWORD'),
           db: configService.get<number>('REDIS_DB', 0),
           keyPrefix: configService.get<string>('REDIS_KEY_PREFIX'),
-          maxRetriesPerRequest: null,
+          maxRetriesPerRequest: 10,
+          commandTimeout: 3000,
+          connectTimeout: 5000,
+          enableOfflineQueue: false,
           enableReadyCheck: true,
         });
 

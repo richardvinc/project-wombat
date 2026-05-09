@@ -1,13 +1,15 @@
 import {
   Injectable,
   InternalServerErrorException,
+  Logger,
   OnApplicationBootstrap,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { FlashSaleDemoConfigService } from '../../config/demo.config';
 import { createFlashSaleSeed } from '../../../database/seeds/seed-flash-sale';
 import { RedisService } from '../../../redis/redis.service';
+import { FlashSaleDemoConfigService } from '../../config/demo.config';
 import { createOrdersRedisKeys } from '../../orders/orders.redis-keys';
 import {
   FlashSaleStatusResponseDto,
@@ -17,16 +19,18 @@ import { FlashSaleEntity } from '../entities/flash-sale.entity';
 
 @Injectable()
 export class FlashSaleService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(FlashSaleService.name);
+
   constructor(
     @InjectRepository(FlashSaleEntity)
     private readonly flashSaleRepository: Repository<FlashSaleEntity>,
     private readonly redisService: RedisService,
     private readonly demoConfig: FlashSaleDemoConfigService,
+    private readonly configService: ConfigService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    const redis = this.redisService.getClient();
-    await redis.flushdb();
+    await this.resetRedisState();
     const sale = await this.seedDefaultSale();
     await this.ensureAvailableSlotsInitialized(sale.totalStock);
   }
@@ -66,6 +70,22 @@ export class FlashSaleService implements OnApplicationBootstrap {
     const redis = this.redisService.getClient();
     const redisKeys = createOrdersRedisKeys(this.demoConfig.saleId);
     await redis.set(redisKeys.availableSlots(), String(totalStock), 'NX');
+  }
+
+  /**
+   * this is a over-engineered way to make sure everytime we launch this demo project, we purge all keys used that WE use and not just flush everything on redis down the drain. we won't need this on production.
+   */
+  private async resetRedisState(): Promise<void> {
+    const redisKeyPrefix =
+      this.configService.get<string>('REDIS_KEY_PREFIX') ?? '';
+    const bullPrefix = this.configService.get<string>('BULLMQ_PREFIX') ?? '';
+
+    const deleted = await this.redisService.deleteByPatterns([
+      `${redisKeyPrefix}sale:*`,
+      `${bullPrefix}:*`,
+    ]);
+
+    this.logger.log(`Reset Redis demo state. Deleted ${deleted} keys.`);
   }
 
   private async seedDefaultSale(): Promise<FlashSaleEntity> {
