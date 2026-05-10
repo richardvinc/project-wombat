@@ -1,0 +1,212 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: ${LOADTEST_API_CONTAINER_NAME:-wombat_api_loadtest}
+    expose:
+      - '${API_PORT:-3100}'
+    env_file:
+      - .env.loadtest
+    environment:
+      NODE_ENV: production
+      PORT: ${API_PORT:-3100}
+      DATABASE_HOST: postgres
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3100/api/flash-sale/status').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks:
+      - loadtest_network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${LOADTEST_POSTGRES_CONTAINER_NAME:-wombat_postgres_loadtest}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-1234}
+      POSTGRES_DB: ${DATABASE_NAME:-project-wombat-loadtest}
+    ports:
+      - '${DATABASE_PORT:-5436}:5432'
+    volumes:
+      - loadtest_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-project-wombat-loadtest}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - loadtest_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${LOADTEST_REDIS_CONTAINER_NAME:-wombat_redis_loadtest}
+    restart: unless-stopped
+    env_file:
+      - .env.loadtest
+    command:
+      [
+        'sh',
+        '-c',
+        'redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"',
+      ]
+    ports:
+      - '${REDIS_PORT:-6381}:6379'
+    volumes:
+      - loadtest_redis_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$${REDIS_PASSWORD}" ping | grep PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - loadtest_network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ${LOADTEST_NGINX_CONTAINER_NAME:-wombat_nginx_loadtest}
+    restart: unless-stopped
+    expose:
+      - '8080'
+    env_file:
+      - .env.loadtest
+    environment:
+      LOADTEST_NGINX_RATE_LIMIT: ${LOADTEST_NGINX_RATE_LIMIT:-4r/s}
+      LOADTEST_NGINX_RATE_BURST: ${LOADTEST_NGINX_RATE_BURST:-3}
+      LOADTEST_NGINX_CONN_LIMIT: ${LOADTEST_NGINX_CONN_LIMIT:-2}
+    volumes:
+      - ./loadtest/nginx/default.conf:/etc/nginx/templates/default.conf.template:ro
+      - ./loadtest/logs/nginx:/var/log/nginx
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -fsS http://127.0.0.1:8080/healthz >/dev/null || exit 1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - loadtest_network
+
+  waf:
+    image: owasp/modsecurity-crs:4.25-nginx-lts
+    container_name: ${LOADTEST_WAF_CONTAINER_NAME:-wombat_waf_loadtest}
+    restart: unless-stopped
+    env_file:
+      - .env.loadtest
+    environment:
+      BACKEND: http://nginx:8080
+      SERVER_NAME: localhost
+      PORT: 8080
+      MODSEC_RULE_ENGINE: ${LOADTEST_WAF_MODE:-On}
+      MODSEC_AUDIT_ENGINE: On
+      MODSEC_AUDIT_LOG: /var/log/modsecurity/audit/index.log
+      MODSEC_AUDIT_LOG_TYPE: Concurrent
+      MODSEC_AUDIT_LOG_FORMAT: JSON
+      MODSEC_AUDIT_STORAGE_DIR: /var/log/modsecurity/audit/data
+      MODSEC_AUDIT_LOG_PARTS: ABIJDEFHZ
+      BLOCKING_PARANOIA: ${LOADTEST_WAF_BLOCKING_PARANOIA:-1}
+      DETECTION_PARANOIA: ${LOADTEST_WAF_DETECTION_PARANOIA:-1}
+      ANOMALY_INBOUND: ${LOADTEST_WAF_INBOUND_ANOMALY:-5}
+      ANOMALY_OUTBOUND: ${LOADTEST_WAF_OUTBOUND_ANOMALY:-4}
+      MODSEC_RESP_BODY_ACCESS: Off
+    ports:
+      - '${NGINX_PORT:-8088}:8080'
+    volumes:
+      - ./loadtest/modsecurity/REQUEST-999-LOADTEST.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-999-LOADTEST.conf:ro
+      - ./loadtest/logs/modsecurity:/var/log/modsecurity
+    depends_on:
+      nginx:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -fsS http://127.0.0.1:8080/healthz >/dev/null || exit 1',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - loadtest_network
+
+  k6:
+    image: grafana/k6:0.50.0
+    container_name: ${LOADTEST_K6_CONTAINER_NAME:-wombat_k6_loadtest}
+    env_file:
+      - .env.loadtest
+    environment:
+      BASE_URL: http://waf:8080
+      SUMMARY_OUTPUT_FILE: /artifacts/${LOADTEST_RUN_NAME:-latest}/k6-summary.json
+      SUMMARY_TEXT_FILE: /artifacts/${LOADTEST_RUN_NAME:-latest}/k6-summary.txt
+    command:
+      ['run', '--tag', 'testid=flash-sale-loadtest', '/scripts/scenario.js']
+    volumes:
+      - ./loadtest/k6:/scripts:ro
+      - ./loadtest/artifacts:/artifacts
+    depends_on:
+      waf:
+        condition: service_healthy
+    networks:
+      - loadtest_network
+
+  collector:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: ${LOADTEST_COLLECTOR_CONTAINER_NAME:-wombat_collector_loadtest}
+    env_file:
+      - .env.loadtest
+    environment:
+      COLLECTOR_WAIT_SECONDS: ${LOADTEST_COLLECTOR_WAIT_SECONDS:-8}
+      ARTIFACTS_DIR: /app/loadtest/artifacts/${LOADTEST_RUN_NAME:-latest}
+      NGINX_LOG_FILE: /app/loadtest/logs/nginx/access.log
+      MODSEC_AUDIT_DIR: /app/loadtest/logs/modsecurity/audit/data
+      DATABASE_HOST: postgres
+      REDIS_HOST: redis
+    command:
+      [
+        'sh',
+        '-c',
+        'sleep "$${COLLECTOR_WAIT_SECONDS}" && node /app/loadtest/collector/report.js',
+      ]
+    volumes:
+      - ./loadtest:/app/loadtest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - loadtest_network
+
+volumes:
+  loadtest_postgres_data:
+  loadtest_redis_data:
+
+networks:
+  loadtest_network:
+    driver: bridge

@@ -50,3 +50,5 @@ out
 
 .env
 .env.docker
+loadtest/artifacts/
+loadtest/logs/

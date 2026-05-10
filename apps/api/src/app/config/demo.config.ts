@@ -22,6 +22,9 @@ export const flashSaleDemoDefaults = {
 
   // duration to count repeated user attempt before counted as too many attempts -> default to 1 minute
   attemptWindowSeconds: 60,
+
+  // payment outcome success rate when no explicit override is passed
+  paymentSuccessRate: 0.7,
 } as const;
 
 @Injectable()
@@ -93,6 +96,17 @@ export class FlashSaleDemoConfigService {
       'FLASH_SALE_ATTEMPT_WINDOW_SECONDS',
       flashSaleDemoDefaults.attemptWindowSeconds,
     );
+  }
+
+  get paymentSuccessRate(): number {
+    return this.configService.get<number>(
+      'FLASH_SALE_PAYMENT_SUCCESS_RATE',
+      flashSaleDemoDefaults.paymentSuccessRate,
+    );
+  }
+
+  get loadTestMode(): boolean {
+    return this.configService.get<boolean>('FLASH_SALE_LOAD_TEST_MODE', false);
   }
 }
 

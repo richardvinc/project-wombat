@@ -57,4 +57,9 @@ export const envValidationSchema = Joi.object({
     .integer()
     .min(1)
     .default(flashSaleDemoDefaults.attemptWindowSeconds),
+  FLASH_SALE_PAYMENT_SUCCESS_RATE: Joi.number()
+    .min(0)
+    .max(1)
+    .default(flashSaleDemoDefaults.paymentSuccessRate),
+  FLASH_SALE_LOAD_TEST_MODE: Joi.boolean().default(false),
 });

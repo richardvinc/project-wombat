@@ -45,6 +45,8 @@ const requiredEnv: EnvOverrides = {
   FLASH_SALE_COOLDOWN_TTL_SECONDS: '1',
   FLASH_SALE_USER_ATTEMPT_LIMIT: '3',
   FLASH_SALE_ATTEMPT_WINDOW_SECONDS: '60',
+  FLASH_SALE_PAYMENT_SUCCESS_RATE: '0.7',
+  FLASH_SALE_LOAD_TEST_MODE: 'false',
 };
 
 function applyTestEnv(overrides: EnvOverrides): () => void {

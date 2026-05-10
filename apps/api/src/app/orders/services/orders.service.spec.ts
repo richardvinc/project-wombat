@@ -86,7 +86,7 @@ describe('OrdersService', () => {
       redisService as unknown as RedisService,
       flashSaleService as unknown as FlashSaleService,
       ordersLuaService as unknown as OrdersLuaService,
-      paymentSimulatorService as PaymentSimulatorService,
+      paymentSimulatorService as unknown as PaymentSimulatorService,
       demoConfig,
       ordersQueue as never,
     );

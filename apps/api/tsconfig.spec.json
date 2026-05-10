@@ -2,8 +2,6 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "../../dist/out-tsc",
-    "module": "commonjs",
-    "moduleResolution": "node",
     "types": ["jest", "node"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true

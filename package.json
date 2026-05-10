@@ -2,7 +2,10 @@
   "name": "@project-wombat/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "loadtest:run": "bash ./scripts/run-loadtest.sh",
+    "loadtest:down": "docker compose --env-file .env.loadtest -f docker-compose.loadtest.yml down -v --remove-orphans"
+  },
   "private": true,
   "devDependencies": {
     "@nestjs/schematics": "^11.0.0",
