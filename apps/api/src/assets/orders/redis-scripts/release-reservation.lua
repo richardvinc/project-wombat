@@ -17,7 +17,14 @@ end
 local currentReservationId = redis.call("GET", reservedUserKey)
 
 if not currentReservationId then
-  redis.call("ZREM", expirySetKey, userId)
+  local removedExpiry = redis.call("ZREM", expirySetKey, userId)
+
+  if removedExpiry == 1 then
+    redis.call("INCR", slotsKey)
+    redis.call("SET", cooldownKey, "1", "EX", cooldownSeconds)
+    return "RELEASED_EXPIRED"
+  end
+
   return "NO_RESERVATION"
 end
 
