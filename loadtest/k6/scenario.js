@@ -109,7 +109,10 @@ function shouldStopRetryingBuy(buyResult) {
 
   const buyStatus = getBodyStatus(buyResult.body);
 
-  if (buyStatus !== 'queue_full' && buyStatus !== 'cooldown_active') {
+  if (
+    buyStatus !== 'slots_unavailable' &&
+    buyStatus !== 'cooldown_active'
+  ) {
     return false;
   }
 
@@ -258,7 +261,7 @@ export function buyerFlow(data) {
         break;
       }
 
-      if (buyStatus === 'queue_full') {
+      if (buyStatus === 'slots_unavailable') {
         pause(1.5, 4.0);
         attempt += 1;
         continue;

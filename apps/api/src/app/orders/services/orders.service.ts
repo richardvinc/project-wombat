@@ -394,7 +394,7 @@ export class OrdersService implements OnApplicationBootstrap {
         });
       case 'QUEUE_FULL':
         throw new ConflictException({
-          status: 'queue_full',
+          status: 'slots_unavailable',
           message:
             'All payment slots are currently reserved. Please try again later.',
         });
