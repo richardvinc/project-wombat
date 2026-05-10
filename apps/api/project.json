@@ -59,6 +59,20 @@
           "buildTarget": "api:build:production"
         }
       }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec jest --config apps/api/jest.config.cjs --runInBand",
+        "cwd": "."
+      }
+    },
+    "test-integration": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec jest --config apps/api/jest.integration.config.cjs --runInBand",
+        "cwd": "."
+      }
     }
   },
   "tags": []
