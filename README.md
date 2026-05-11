@@ -139,6 +139,13 @@ Make sure you have local Redis running on port 6379 and local PostgreSQL running
 
 5. Open application on `http://localhost:3000`
 
+### Running the Test
+
+We have two kind of tests in this project, unit test and integration test. Unit test is to test how service behaviors with mock database and redis, while integration test on `apps/api/src/app/app.integration-spec.ts` is used to e2e test the application using local database and redis.
+
+To run unit test, run `pnpm nx test api`.
+To run integration test, run `pnpm nx test-integration api`.
+
 ## Stress Test Instructions
 
 We use k6 to stress test this application. You can see the scenario on `loadtest\k6\scenario.js`. We will read all parameters on `.env.loadtest`. You can tweak the parameters if simulate different scenario (for example, increase the number of users, decrease payment window, make only 10% of payment will success, etc.). I designed the stress test to also run using Docker compose, since we need to simulate web firewall and run k6.
