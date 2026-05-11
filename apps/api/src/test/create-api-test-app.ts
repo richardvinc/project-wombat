@@ -1,7 +1,8 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import Redis from 'ioredis';
 import { DataSource } from 'typeorm';
+import { WorkerAppModule } from '../../../worker/src/worker-app.module';
 import { AppModule } from '../app/app.module';
 import { createOrdersRedisKeys } from '../app/orders/orders.redis-keys';
 import { FlashSaleEntity } from '../app/sale/entities/flash-sale.entity';
@@ -13,8 +14,15 @@ type TestAppContext = {
   redis: Redis;
   close: () => Promise<void>;
 };
+type WorkerTestContext = {
+  app: INestApplicationContext;
+  close: () => Promise<void>;
+};
 
 type EnvOverrides = Record<string, string>;
+type TestAppOptions = {
+  withWorker?: boolean;
+};
 
 const requiredEnv: EnvOverrides = {
   NODE_ENV: 'test',
@@ -46,7 +54,6 @@ const requiredEnv: EnvOverrides = {
   FLASH_SALE_USER_ATTEMPT_LIMIT: '3',
   FLASH_SALE_ATTEMPT_WINDOW_SECONDS: '60',
   FLASH_SALE_PAYMENT_SUCCESS_RATE: '0.7',
-  FLASH_SALE_LOAD_TEST_MODE: 'false',
 };
 
 function applyTestEnv(overrides: EnvOverrides): () => void {
@@ -71,10 +78,12 @@ function applyTestEnv(overrides: EnvOverrides): () => void {
 
 export async function createApiTestApp(
   overrides: EnvOverrides = {},
+  options: TestAppOptions = {},
 ): Promise<TestAppContext> {
   const mergedEnv = { ...requiredEnv, ...overrides };
   const restoreEnv = applyTestEnv(overrides);
   const app = await NestFactory.create(AppModule, { logger: false });
+  let workerApp: INestApplicationContext | null = null;
   app.setGlobalPrefix('api');
   await app.init();
 
@@ -92,12 +101,43 @@ export async function createApiTestApp(
       endAt: new Date(Date.now() + 300_000),
     },
   );
-  await redis.set(createOrdersRedisKeys(saleId).availableSlots(), String(totalStock));
+  await redis.set(
+    createOrdersRedisKeys(saleId).availableSlots(),
+    String(totalStock),
+  );
+
+  if (options.withWorker) {
+    workerApp = await NestFactory.createApplicationContext(WorkerAppModule, {
+      logger: false,
+    });
+  }
 
   return {
     app,
     dataSource,
     redis,
+    close: async () => {
+      if (workerApp) {
+        await workerApp.close();
+      }
+      await app.close();
+      restoreEnv();
+    },
+  };
+}
+
+export async function createWorkerTestApp(
+  overrides: EnvOverrides = {},
+): Promise<WorkerTestContext> {
+  const restoreEnv = applyTestEnv({
+    ...overrides,
+  });
+  const app = await NestFactory.createApplicationContext(WorkerAppModule, {
+    logger: false,
+  });
+
+  return {
+    app,
     close: async () => {
       await app.close();
       restoreEnv();
