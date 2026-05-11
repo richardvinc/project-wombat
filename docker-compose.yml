@@ -38,6 +38,25 @@ services:
     networks:
       - app_network
 
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: wombat_worker
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_HOST: postgres
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app_network
+
   postgres:
     image: postgres:16-alpine
     container_name: ${POSTGRES_CONTAINER_NAME}

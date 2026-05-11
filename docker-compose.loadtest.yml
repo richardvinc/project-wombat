@@ -33,6 +33,25 @@ services:
     networks:
       - loadtest_network
 
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: ${LOADTEST_WORKER_CONTAINER_NAME:-wombat_worker_loadtest}
+    env_file:
+      - .env.loadtest
+    environment:
+      NODE_ENV: production
+      DATABASE_HOST: postgres
+      REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - loadtest_network
+
   postgres:
     image: postgres:16-alpine
     container_name: ${LOADTEST_POSTGRES_CONTAINER_NAME:-wombat_postgres_loadtest}
