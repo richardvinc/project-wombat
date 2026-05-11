@@ -23,7 +23,7 @@ const paymentExpired = new Counter('payment_expired');
 const paymentNotFound = new Counter('payment_not_found');
 const paymentConflict = new Counter('payment_conflict');
 const paymentUnexpected = new Counter('payment_unexpected');
-const logicalFailures = new Rate('logical_failures');
+const logicalSuccessRate = new Rate('logical_success_rate');
 
 export const options = {
   setupTimeout: '2m',
@@ -53,7 +53,7 @@ export const options = {
   },
   thresholds: {
     checks: ['rate>=0.90'],
-    logical_failures: ['rate<0.35'],
+    logical_success_rate: ['rate>=0.65'],
   },
 };
 
@@ -143,21 +143,21 @@ function buy(username, extraHeaders = {}) {
 
   if (response.status === 201 && getBodyStatus(body) === 'reserved') {
     buyReserved.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
     return { response, body };
   }
 
   if (response.status === 403) {
     wafBlocked.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
   } else if (response.status === 429) {
     buyThrottled.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
   } else if (response.status === 409) {
     buyConflict.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
   } else {
-    logicalFailures.add(1);
+    logicalSuccessRate.add(0);
   }
 
   return { response, body };
@@ -173,34 +173,34 @@ function pay(username, reservationId) {
 
   if (response.status === 201 && getBodyStatus(body) === 'paid') {
     paymentPaid.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
     return { response, body };
   }
 
   if (response.status === 201 && getBodyStatus(body) === 'payment_failed') {
     paymentFailed.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
     return { response, body };
   }
 
   if (response.status === 410) {
     paymentExpired.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
   } else if (response.status === 404) {
     paymentNotFound.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
   } else if (response.status === 409) {
     paymentConflict.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
   } else if (response.status === 403) {
     wafBlocked.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
   } else if (response.status === 429) {
     buyThrottled.add(1);
-    logicalFailures.add(0);
+    logicalSuccessRate.add(1);
   } else {
     paymentUnexpected.add(1);
-    logicalFailures.add(1);
+    logicalSuccessRate.add(0);
   }
 
   return { response, body };

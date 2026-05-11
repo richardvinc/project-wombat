@@ -190,7 +190,11 @@ function extractK6Summary(summary) {
       paymentNotFound: metrics.payment_not_found?.values?.count ?? 0,
       paymentConflict: metrics.payment_conflict?.values?.count ?? 0,
       paymentUnexpected: metrics.payment_unexpected?.values?.count ?? 0,
-      logicalFailuresRate: metrics.logical_failures?.values?.rate ?? 0,
+      logicalSuccessRate: metrics.logical_success_rate?.values?.rate ?? 0,
+      logicalFailuresRate:
+        metrics.logical_success_rate?.values?.rate == null
+          ? 0
+          : 1 - metrics.logical_success_rate.values.rate,
     },
   };
 }
