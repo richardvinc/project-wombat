@@ -104,10 +104,6 @@ export class FlashSaleDemoConfigService {
       flashSaleDemoDefaults.paymentSuccessRate,
     );
   }
-
-  get loadTestMode(): boolean {
-    return this.configService.get<boolean>('FLASH_SALE_LOAD_TEST_MODE', false);
-  }
 }
 
 @Global()

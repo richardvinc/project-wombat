@@ -31,7 +31,7 @@ cleanup() {
 
 trap cleanup EXIT
 
-docker compose --env-file "$ENV_FILE" -f docker-compose.loadtest.yml up -d --build postgres redis api nginx waf
+docker compose --env-file "$ENV_FILE" -f docker-compose.loadtest.yml up -d --build postgres redis api worker nginx waf
 
 k6_exit_code=0
 collector_exit_code=0
