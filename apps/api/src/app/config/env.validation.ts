@@ -5,7 +5,6 @@ export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test')
     .default('development'),
-  NEXT_PUBLIC_API_URL: Joi.string().required(),
   API_PORT: Joi.number().port().required(),
   DATABASE_HOST: Joi.string().hostname().required(),
   // DATABASE_PORT: Joi.number().port().required(),

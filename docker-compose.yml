@@ -10,6 +10,7 @@ services:
       - .env
     environment:
       NODE_ENV: production
+      API_INTERNAL_URL: http://api:3100
     depends_on:
       - api
     networks:
