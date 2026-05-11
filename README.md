@@ -147,8 +147,6 @@ We also add a WAF layer in front of NGINX that is missing from normal execution.
 
 ### Running the Test
 
-Make sure you install all dependencies using `pnpm install`, since the script won't run without it.
-
 To run the stress test, you just need to run `pnpm run loadtest:run`. The script will remove any of previous test run containers (if any), build all required docker image, and run the containers.
 
 ### Inspecting Redis and Database
