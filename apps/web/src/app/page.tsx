@@ -99,12 +99,21 @@ export default function Index() {
     setLastError(null);
   }
 
+  function getUserHeaders(): HeadersInit | undefined {
+    if (!username.trim()) {
+      return undefined;
+    }
+
+    return { 'X-User-Id': username.trim() };
+  }
+
   async function refreshSaleStatus() {
     resetMessages();
 
     try {
       const response = await fetch('/api/flash-sale/status', {
         cache: 'no-store',
+        headers: getUserHeaders(),
       });
       const data = await readResponse<SaleStatus>(response);
       setSaleStatus(data);
@@ -125,7 +134,10 @@ export default function Index() {
     try {
       const response = await fetch('/api/orders/buy', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...getUserHeaders(),
+        },
         body: JSON.stringify({ username }),
       });
       const data = await readResponse<BuyResponse>(response);
@@ -156,7 +168,10 @@ export default function Index() {
     try {
       const response = await fetch('/api/orders/pay', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...getUserHeaders(),
+        },
         body: JSON.stringify({
           username,
           reservationId,
@@ -190,7 +205,7 @@ export default function Index() {
     try {
       const response = await fetch(
         `/api/orders/status?username=${encodeURIComponent(username)}`,
-        { cache: 'no-store' },
+        { cache: 'no-store', headers: getUserHeaders() },
       );
       const data = await readResponse<OrderStatusResponse>(response);
       setOrderStatus(data);
